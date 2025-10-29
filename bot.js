@@ -1,8 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
-const express = require('express');
 
 // Токен от @BotFather
-const TOKEN = '7738291815:AAFubfrcH-lJoRjLnUAZPfcsOdhqPQ4MuSM'; // ЗАМЕНИ НА РЕАЛЬНЫЙ ТОКЕН!
+const TOKEN = process.env.BOT_TOKEN || 'твой_токен_от_botfather';
 const bot = new TelegramBot(TOKEN, { polling: true });
 
 const SITE_URL = 'https://stexible.github.io/xoring-glow';
@@ -14,12 +13,19 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(chatId, '🎮 Добро пожаловать в Xoring Glow!', {
     reply_markup: {
       inline_keyboard: [
+        // КАЖДАЯ кнопка должна быть в отдельном массиве
         [{ 
-          text: '🚀 Открыть игру', 
-          web_app: { url: SITE_URL }  // ← ВАЖНО: web_app вместо url!
+          text: '🚀 Играть сейчас', 
+          web_app: { url: SITE_URL }
         }],
-        [{ text: '📊 Лидерборд', callback_data: 'leaderboard' }],
-        [{ text: 'ℹ️ О игре', callback_data: 'about' }]
+        [{ 
+          text: '📊 Лидерборд', 
+          callback_data: 'leaderboard' 
+        }],
+        [{ 
+          text: 'ℹ️ О игре', 
+          callback_data: 'about' 
+        }]
       ]
     }
   });
@@ -43,9 +49,12 @@ bot.on('callback_query', (query) => {
 bot.onText(/\/site/, (msg) => {
   bot.sendMessage(msg.chat.id, `🌐 Ссылка на игру: ${SITE_URL}`, {
     reply_markup: {
-      inline_keyboard: [[
-        { text: 'Открыть игру', url: SITE_URL }
-      ]]
+      inline_keyboard: [
+        [{
+          text: 'Открыть игру', 
+          web_app: { url: SITE_URL }
+        }]
+      ]
     }
   });
 });
