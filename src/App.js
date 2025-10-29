@@ -50,6 +50,47 @@ function App() {
   const [gameOver, setGameOver] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [tg, setTg] = useState(null);
+  const [userData, setUserData] = useState(null);
+
+  // Инициализация Telegram Web App
+  useEffect(() => {
+    if (window.Telegram && window.Telegram.WebApp) {
+      const telegram = window.Telegram.WebApp;
+      setTg(telegram);
+      
+      // Расширяем на весь экран
+      telegram.expand();
+      
+      // Получаем данные пользователя
+      const user = telegram.initDataUnsafe?.user;
+      if (user) {
+        setUserData(user);
+        // Автоматически устанавливаем имя пользователя Telegram
+        setPlayerName(user.first_name || `User${user.id}`);
+      }
+      
+      // Настраиваем интерфейс Telegram
+      telegram.BackButton.show();
+      telegram.BackButton.onClick(() => {
+        if (gameStarted) {
+          handleRestart();
+        } else {
+          telegram.BackButton.hide();
+        }
+      });
+      
+      // Обработчик закрытия
+      telegram.onEvent('viewportChanged', (event) => {
+        console.log('Viewport changed:', event);
+      });
+      
+      return () => {
+        telegram.BackButton.offClick();
+        telegram.BackButton.hide();
+      };
+    }
+  }, [gameStarted]);
 
   // Загрузка лидерборда из localStorage при старте
   useEffect(() => {
@@ -71,6 +112,11 @@ function App() {
     setGameOver(false);
     setGameStarted(true);
     setShowLeaderboard(false);
+    
+    // Показываем кнопку "Назад" в Telegram
+    if (tg) {
+      tg.BackButton.show();
+    }
   };
 
   const handleCellClick = (rowIndex, colIndex) => {
@@ -105,25 +151,39 @@ function App() {
     if (gameStarted && !gameOver) {
       if (checkWin(field)) {
         setGameOver(true);
-        if (score > 0) {
+        
+        // Используем Telegram-совместимые алерты
+        if (tg) {
+          tg.showAlert(`Поздравляем, ${playerName}! Вы выиграли с ${score} очками!`);
+        } else {
           alert(`Поздравляем, ${playerName}! Вы выиграли с ${score} очками!`);
-          const newLeaderboardEntry = { name: playerName, score: score, date: new Date().toLocaleDateString() };
+        }
+        
+        if (score > 0) {
+          const newLeaderboardEntry = { 
+            name: playerName, 
+            score: score, 
+            date: new Date().toLocaleDateString(),
+            userId: userData?.id || null 
+          };
           const updatedLeaderboard = [...leaderboard, newLeaderboardEntry]
             .sort((a, b) => b.score - a.score)
             .slice(0, MAX_LEADERBOARD_ENTRIES);
           saveLeaderboard(updatedLeaderboard);
-        } else {
-          alert(`Вы выиграли, ${playerName}, но без очков. Попробуйте снова!`);
         }
       }
     }
-  }, [field, gameStarted, gameOver, score, playerName, leaderboard, saveLeaderboard]);
+  }, [field, gameStarted, gameOver, score, playerName, leaderboard, saveLeaderboard, tg, userData]);
 
   const handleRestart = () => {
     setGameStarted(false);
     setGameOver(false);
-    setPlayerName(''); // Сброс имени для нового игрока
     setGameMode(null);
+    
+    // Скрываем кнопку "Назад" в Telegram при возврате в меню
+    if (tg && !gameStarted) {
+      tg.BackButton.hide();
+    }
   }
 
   // Функция для получения отображаемого названия режима
@@ -140,16 +200,25 @@ function App() {
   return (
     <div className="app-container">
       <h1 className="game-title">Xoring Glow</h1>
+      
+      {/* Показываем информацию о пользователе Telegram */}
+      {userData && (
+        <div className="telegram-user-info glass-panel">
+          <p>👤 Играешь как: <span className="highlight">{playerName}</span></p>
+        </div>
+      )}
 
       {!gameStarted && !showLeaderboard && (
         <div className="main-menu glass-panel">
-          <input
-            type="text"
-            className="player-name-input glass-input"
-            placeholder="Введите ваше имя"
-            value={playerName}
-            onChange={(e) => setPlayerName(e.target.value)}
-          />
+          {!userData && (
+            <input
+              type="text"
+              className="player-name-input glass-input"
+              placeholder="Введите ваше имя"
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+            />
+          )}
           <button className="glass-button" onClick={() => startGame('easy')} disabled={!playerName}>
             Легко (8x5)
           </button>
